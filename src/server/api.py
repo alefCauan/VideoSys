@@ -1,0 +1,1 @@
+# Ponto de entrada do servidor Flask

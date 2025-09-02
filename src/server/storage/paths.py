@@ -1,0 +1,1 @@
+# Geração de diretórios (yyyy/mm/dd/uuid)

@@ -1,0 +1,9 @@
+media/
+├─ incoming/                           # Uploads temporários
+├─ videos/
+│  └─ {yyyy}/{mm}/{dd}/{uuid}/         # UUID único por vídeo
+│     ├─ video.{ext}                   # Arquivo de vídeo final
+│     ├─ meta.json                     # Metadados do vídeo
+│     └─ thumbs/                       # Thumbnails gerados automaticamente
+└─ trash/                              # Vídeos marcados para exclusão
+
