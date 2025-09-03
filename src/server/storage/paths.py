@@ -1,7 +1,7 @@
 # storage/paths.py
 import os
 
-MEDIA_ROOT = "media"
+MEDIA_ROOT = "../media"
 INCOMING = os.path.join(MEDIA_ROOT, "incoming")
 VIDEOS = os.path.join(MEDIA_ROOT, "videos")
 
