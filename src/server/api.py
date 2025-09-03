@@ -1,74 +1,13 @@
-import os
+from flask import Flask, request, redirect, url_for, render_template_string, send_from_directory
 import uuid
-import json
-import sqlite3
 import datetime
+import os
+from storage import manager, paths
+from filters import grayscale, edges, pixelate
 import cv2
-from flask import Flask, request, render_template_string, send_from_directory, redirect, url_for
-
-# Config
-MEDIA_ROOT = "media"
-INCOMING = os.path.join(MEDIA_ROOT, "incoming")
-VIDEOS = os.path.join(MEDIA_ROOT, "videos")
-DB_PATH = "videos.db"
-
-os.makedirs(INCOMING, exist_ok=True)
-os.makedirs(VIDEOS, exist_ok=True)
 
 app = Flask(__name__)
-
-# --- Banco de Dados ---
-def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS videos (
-                id TEXT PRIMARY KEY,
-                original_name TEXT,
-                original_ext TEXT,
-                mime_type TEXT,
-                size_bytes INTEGER,
-                duration_sec REAL,
-                fps REAL,
-                width INTEGER,
-                height INTEGER,
-                filter TEXT,
-                created_at TEXT,
-                path_original TEXT,
-                path_processed TEXT
-            )
-        """)
-        conn.commit()
-
-init_db()
-
-# --- Funções Auxiliares ---
-def process_video(path_in, path_out, filter_type="gray"):
-    cap = cv2.VideoCapture(path_in)
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-    out = cv2.VideoWriter(path_out, fourcc, fps, (w, h), isColor=(filter_type != "gray"))
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        if filter_type == "gray":
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-        elif filter_type == "edges":
-            frame = cv2.Canny(frame, 100, 200)
-            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-        elif filter_type == "pixel":
-            frame = cv2.resize(frame, (64, 64), interpolation=cv2.INTER_LINEAR)
-            frame = cv2.resize(frame, (w, h), interpolation=cv2.INTER_NEAREST)
-        out.write(frame)
-
-    cap.release()
-    out.release()
+manager.init_db()
 
 def generate_thumbnail(video_path, thumb_path):
     cap = cv2.VideoCapture(video_path)
