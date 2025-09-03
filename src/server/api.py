@@ -1,29 +1,57 @@
-from flask import Flask, request, redirect, url_for, render_template_string, send_from_directory
+import os
 import uuid
 import datetime
-import os
+import cv2
+from flask import Flask, request, render_template_string, send_from_directory, redirect, url_for
+
+# imports locais
 from storage import manager, paths
 from filters import grayscale, edges, pixelate
-import cv2
 
 app = Flask(__name__)
 manager.init_db()
 
-def generate_thumbnail(video_path, thumb_path):
-    cap = cv2.VideoCapture(video_path)
-    ret, frame = cap.read()
-    if ret:
+def process_video(input_path, output_path, filter_type="gray"):
+    video_capture = cv2.VideoCapture(input_path)
+    video_codec = cv2.VideoWriter_fourcc(*"mp4v")
+    video_fps = video_capture.get(cv2.CAP_PROP_FPS)
+    frame_width = int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    video_writer = cv2.VideoWriter(output_path, video_codec, video_fps, (frame_width, frame_height), isColor=True)
+
+    while True:
+        frame_read_success, frame = video_capture.read()
+        if not frame_read_success:
+            break
+
+        if filter_type == "gray":
+            frame = grayscale.apply(frame)
+        elif filter_type == "edges":
+            frame = edges.apply(frame)
+        elif filter_type == "pixel":
+            frame = pixelate.apply(frame)
+
+        video_writer.write(frame)
+
+    video_capture.release()
+    video_writer.release()
+
+def generate_thumbnail(video_path, thumbnail_path):
+    video_capture = cv2.VideoCapture(video_path)
+    frame_read_success, frame = video_capture.read()
+    if frame_read_success:
         frame = cv2.resize(frame, (160, 90))
-        cv2.imwrite(thumb_path, frame)
-    cap.release()
+        cv2.imwrite(thumbnail_path, frame)
+    video_capture.release()
 
 # --- Rotas ---
 @app.route("/", methods=["GET"])
 def index():
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT id, filename, filter, created_at FROM videos ORDER BY created_at DESC")
-        rows = cur.fetchall()
+    with manager.sqlite3.connect(manager.DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, filename, filter, created_at FROM videos ORDER BY created_at DESC")
+        video_rows = cursor.fetchall()
 
     template = """
     <h1>Vídeos Processados</h1>
@@ -46,62 +74,50 @@ def index():
         </div>
     {% endfor %}
     """
-    return render_template_string(template, rows=rows)
+    return render_template_string(template, rows=video_rows)
 
 @app.route("/upload", methods=["POST"])
 def upload():
-    file = request.files["video"]
-    filter_type = request.form.get("filter", "gray")
-    if not file:
+    uploaded_file = request.files["video"]
+    selected_filter = request.form.get("filter", "gray")
+    if not uploaded_file:
         return "Nenhum arquivo enviado", 400
 
-    tmp_path = os.path.join(INCOMING, file.filename)
-    file.save(tmp_path)
+    temp_file_path = os.path.join(paths.INCOMING, uploaded_file.filename)
+    uploaded_file.save(temp_file_path)
 
-    vid_uuid = str(uuid.uuid4())
-    today = datetime.date.today()
-    out_dir = os.path.join(VIDEOS, today.strftime("%Y"), today.strftime("%m"), today.strftime("%d"), vid_uuid)
-    os.makedirs(out_dir, exist_ok=True)
+    video_uuid = str(uuid.uuid4())
+    today_date = datetime.date.today()
+    output_directory = os.path.join(paths.VIDEOS, today_date.strftime("%Y"), today_date.strftime("%m"), today_date.strftime("%d"), video_uuid)
+    os.makedirs(output_directory, exist_ok=True)
 
-    out_video = os.path.join(out_dir, "video.mp4")
-    process_video(tmp_path, out_video, filter_type)
+    output_video_path = os.path.join(output_directory, "video.mp4")
+    process_video(temp_file_path, output_video_path, selected_filter)
 
-    thumb_path = os.path.join(out_dir, "thumbs")
-    os.makedirs(thumb_path, exist_ok=True)
-    thumb_file = os.path.join(thumb_path, "thumb.jpg")
-    generate_thumbnail(out_video, thumb_file)
+    # thumbnail
+    thumbnail_directory = os.path.join(output_directory, "thumbs")
+    os.makedirs(thumbnail_directory, exist_ok=True)
+    thumbnail_file_path = os.path.join(thumbnail_directory, "thumb.jpg")
+    generate_thumbnail(output_video_path, thumbnail_file_path)
 
-    meta = {
-        "uuid": vid_uuid,
-        "filename": "video.mp4",
-        "filter": filter_type,
-        "created_at": today.isoformat()
-    }
-    with open(os.path.join(out_dir, "meta.json"), "w") as f:
-        json.dump(meta, f, indent=2)
+    # metadata + banco
+    manager.save_metadata(video_uuid, selected_filter, output_directory)
 
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute("INSERT INTO videos (id, filename, filter, created_at) VALUES (?, ?, ?, ?)",
-                    (vid_uuid, "video.mp4", filter_type, today.isoformat()))
-        conn.commit()
-
-    os.remove(tmp_path)
+    os.remove(temp_file_path)
     return redirect(url_for("index"))
 
 @app.route("/videos/<video_id>")
 def serve_video(video_id):
-    # Procura vídeo
-    for root, dirs, files in os.walk(VIDEOS):
-        if video_id in root and "video.mp4" in files:
-            return send_from_directory(root, "video.mp4")
+    for root_dir, sub_dirs, files in os.walk(paths.VIDEOS):
+        if video_id in root_dir and "video.mp4" in files:
+            return send_from_directory(root_dir, "video.mp4")
     return "Vídeo não encontrado", 404
 
 @app.route("/thumbs/<video_id>")
 def serve_thumb(video_id):
-    for root, dirs, files in os.walk(VIDEOS):
-        if video_id in root and "thumbs" in dirs:
-            return send_from_directory(os.path.join(root, "thumbs"), "thumb.jpg")
+    for root_dir, sub_dirs, files in os.walk(paths.VIDEOS):
+        if video_id in root_dir and "thumbs" in sub_dirs:
+            return send_from_directory(os.path.join(root_dir, "thumbs"), "thumb.jpg")
     return "Thumb não encontrada", 404
 
 if __name__ == "__main__":
