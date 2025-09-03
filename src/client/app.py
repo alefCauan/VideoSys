@@ -15,7 +15,8 @@ class VideoClient:
 
         self.server_url = "http://127.0.0.1:5000/process_video"
 
-        self.history_thumbnails = {}
+        self.original_thumbnails = {}
+        self.filtered_thumbnails = {}
 
         # Botão para seleção de vídeo
         self.select_btn = tk.Button(
@@ -49,15 +50,47 @@ class VideoClient:
         # Caminho do vídeo
         self.video_path = None
 
+    def create_image(self, color, name, fill):
+        img = Image.new("RGB", (200, 150), color=color)
+        draw = ImageDraw.Draw(img)
+        draw.text((10, 60), f"{name}", fill)
+        return img
+
+    def create_thumb(self, img):
+        img.thumbnail((150, 150))
+        return ImageTk.PhotoImage(img)
+
     # Seleção de vídeo
     def select_video(self):
         self.video_path = filedialog.askopenfilename(
             filetypes=[("Vídeos", "*.mp4 *.avi *.mkv")])
-        if self.video_path:
-            self.history_list.insert(
-                tk.END, f"Selecionado: {os.path.basename(self.video_path)}")
+        if (self.video_path):
+            if (self.simulada):
+                img = self.create_image("lightblue", "Original", "black")
+                photo = self.create_thumb(img)
+
+            entry_text = f"Selecionado: {self.video_name()}"
+
+            self.save_image(entry_text, self.original_thumbnails, photo)
+
+    def video_name(self):
+        return os.path.basename(self.video_path)
+
+    def set_thumbnail_label(self, photo):
+        self.thumbnail_label.config(image=photo)
+        self.thumbnail_label.image = photo
+
+    def save_image(self, entry_text, dicio, photo):
+        self.history_list.insert(tk.END, entry_text)
+
+        # Salvar a thumbnail original
+        dicio[entry_text] = photo
+
+        # Exibir a original
+        self.set_thumbnail_label(photo)
 
     # Envio para o servidor
+
     def upload_video(self):
         if not self.video_path:
             return
@@ -69,25 +102,19 @@ class VideoClient:
             response = requests.post(self.server_url, files=files, data=data)
         else:
             # Criar thumbnail simulada
-            img = Image.new("RGB", (200, 150), color="gray")
-            draw = ImageDraw.Draw(img)
-            draw.text((10, 60), f"{filtro}", fill="white")
+            img = self.create_image("gray", filtro, "white")
 
         if (self.simulada or response.status_code == 200):
-            # Adiciona no histórico
-            entry_text = f"{os.path.basename(self.video_path)} | {filtro}"
-            self.history_list.insert(tk.END, entry_text)
-
             # Exibe thumbnail
             if (not self.simulada):
                 img_data = response.content
                 img = Image.open(io.BytesIO(img_data))
 
-            img.thumbnail((150, 150))
-            photo = ImageTk.PhotoImage(img)
-            self.history_thumbnails[entry_text] = photo
-            self.thumbnail_label.config(image=photo)
-            self.thumbnail_label.image = photo
+            # Adiciona no histórico
+            entry_text = f"{self.video_name()} | {filtro}"
+            photo = self.create_thumb(img)
+
+            self.save_image(entry_text, self.filtered_thumbnails, photo)
         else:
             self.history_list.insert(tk.END, "Erro no upload")
 
@@ -144,11 +171,14 @@ class VideoClient:
         if selection:
             index = selection[0]
             entry_text = event.widget.get(index)
-            # Recupera e exibe a thumbnail
-            if entry_text in self.history_thumbnails:
-                photo = self.history_thumbnails[entry_text]
-                self.thumbnail_label.config(image=photo)
-                self.thumbnail_label.image = photo
+
+            if (entry_text.startswith("Selecionado:")):
+                photo = self.original_thumbnails.get(entry_text)
+            else:
+                photo = self.filtered_thumbnails.get(entry_text)
+
+            if (photo):
+                self.set_thumbnail_label(photo)
 
 
 root = tk.Tk()
