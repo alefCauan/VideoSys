@@ -49,9 +49,9 @@ def generate_thumbnail(video_path, thumbnail_path):
 @app.route("/", methods=["GET"])
 def index():
     with manager.sqlite3.connect(manager.DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, filename, filter, created_at FROM videos ORDER BY created_at DESC")
-        video_rows = cursor.fetchall()
+        cur = conn.cursor()
+        cur.execute("SELECT id, original_name, filter, created_at FROM videos ORDER BY created_at DESC")
+        rows = cur.fetchall()
 
     template = """
     <h1>Vídeos Processados</h1>
@@ -65,7 +65,7 @@ def index():
         <button type="submit">Upload</button>
     </form>
     <hr>
-    {% for id, filename, filter, created_at in rows %}
+    {% for id, original_name, filter, created_at in rows %}
         <div>
             <p><b>{{ id }}</b> ({{ filter }}) - {{ created_at }}</p>
             <a href="{{ url_for('serve_video', video_id=id) }}">
@@ -74,7 +74,7 @@ def index():
         </div>
     {% endfor %}
     """
-    return render_template_string(template, rows=video_rows)
+    return render_template_string(template, rows=rows)
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -101,7 +101,14 @@ def upload():
     generate_thumbnail(output_video_path, thumbnail_file_path)
 
     # metadata + banco
-    manager.save_metadata(video_uuid, selected_filter, output_directory)
+    manager.save_meta_json(
+        video_uuid,
+        uploaded_file.filename,
+        selected_filter,
+        output_video_path,
+        thumbnail_file_path,
+        output_directory
+    )
 
     os.remove(temp_file_path)
     return redirect(url_for("index"))
