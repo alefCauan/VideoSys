@@ -118,53 +118,6 @@ class VideoClient:
         else:
             self.history_list.insert(tk.END, "Erro no upload")
 
-    # # Envio para o servidor
-    # def upload_video(self):
-    #     if not self.video_path:
-    #         return
-    #     filtro = self.filter_combo.get()
-    #     files = {"video": open(self.video_path, "rb")}
-    #     data = {"filter": filtro}
-    #     response = requests.post(self.server_url, files=files, data=data)
-    #     if response.status_code == 200:
-    #         # Adiciona no histórico
-    #         entry_text = f"{os.path.basename(self.video_path)} | {filtro}"
-    #         self.history_list.insert(tk.END, entry_text)
-
-    #         # Exibe thumbnail
-    #         img_data = response.content
-    #         img = Image.open(io.BytesIO(img_data))
-    #         img.thumbnail((150, 150))
-    #         photo = ImageTk.PhotoImage(img)
-    #         self.thumbnail_label.config(image=photo)
-    #         self.thumbnail_label.image = photo
-    #     else:
-    #         self.history_list.insert(tk.END, "Erro no upload")
-
-    # # Envio simulado para o servidor
-    # def mock_upload_video(self):
-    #     if not self.video_path:
-    #         return
-    #     filtro = self.filter_combo.get()
-
-    #     # Criar thumbanil simulada
-    #     img = Image.new("RGB", (200, 150), color="gray")
-    #     draw = ImageDraw.Draw(img)
-    #     draw.text((10, 60), f"{filtro}", fill="white")
-    #     img.thumbnail((150, 150))
-    #     photo = ImageTk.PhotoImage(img)
-
-    #     # Adicionar no histórico
-    #     entry_text = f"{self.video_path.split('/')[-1]} | {filtro}"
-    #     self.history_list.insert(tk.END, entry_text)
-
-    #     # Salvar referência da thumbnail
-    #     self.history_thumbnails[entry_text] = photo
-
-    #     # Exibir thumbnail
-    #     self.thumbnail_label.config(image=photo)
-    #     self.thumbnail_label.image = photo
-
     def on_history_select(self, event):
         # Pega índice selecionado
         selection = event.widget.curselection()
