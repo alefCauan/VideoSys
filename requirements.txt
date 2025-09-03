@@ -1,3 +1,4 @@
+requests>=2.31.0
 Flask==2.3.3            # Servidor web
 opencv-python==4.12.0.88  # Processamento de vídeos e geração de thumbnails
 numpy==1.25.0            # Manipulação de arrays de imagens
