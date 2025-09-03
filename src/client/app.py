@@ -4,16 +4,15 @@ import requests
 from PIL import Image, ImageTk, ImageDraw
 import io
 import os
+import cv2
 
 class VideoClient:
     def __init__(self, root):
-        self.simulada = True
-
         # Janela principal do Tkinter
         self.root = root
         self.root.title("Cliente de Vídeos")
 
-        self.server_url = "http://127.0.0.1:5000/process_video"
+        self.server_url = "http://10.180.43.186:5000"
 
         self.original_thumbnails = {}
         self.filtered_thumbnails = {}
@@ -26,7 +25,8 @@ class VideoClient:
         # Botão Dropdown de filtros
         self.filter_label = tk.Label(root, text="Escolha o filtro:")
         self.filter_label.pack()
-        self.filter_combo = ttk.Combobox(root, values=["filtro1", "filtro2"])
+        self.filter_combo = ttk.Combobox(
+            root, values=["gray", "edges", "pixel"])
         self.filter_combo.current(0)
         self.filter_combo.pack(pady=5)
 
@@ -65,10 +65,15 @@ class VideoClient:
         self.video_path = filedialog.askopenfilename(
             filetypes=[("Vídeos", "*.mp4 *.avi *.mkv")])
         if (self.video_path):
-            if (self.simulada):
-                img = self.create_image("lightblue", "Original", "black")
-                photo = self.create_thumb(img)
+            cap = cv2.VideoCapture(self.video_path)
+            ret, frame = cap.read()
+            cap.release()
+            if ret:
+                img = Image.fromarray(frame[..., ::-1])  # converte BGR→RGB
+            else:
+                img = self.create_image("red", "Erro", "white")
 
+            photo = self.create_thumb(img)
             entry_text = f"Selecionado: {self.video_name()}"
 
             self.save_image(entry_text, self.original_thumbnails, photo)
@@ -95,20 +100,30 @@ class VideoClient:
         if not self.video_path:
             return
         filtro = self.filter_combo.get()
-        files = {"video": open(self.video_path, "rb")}
 
-        if (not self.simulada):
+        with open(self.video_path, "rb") as arquivo:
+            files = {"video": arquivo}
             data = {"filter": filtro}
-            response = requests.post(self.server_url, files=files, data=data)
-        else:
-            # Criar thumbnail simulada
-            img = self.create_image("gray", filtro, "white")
+            response = requests.post(
+                f"{self.server_url}/upload", files=files, data=data)
 
-        if (self.simulada or response.status_code == 200):
+            if response.status_code != 200:
+                print("Erro no upload:", response.text)
+                self.history_list.insert(tk.END, "Erro no upload")
+                return
+
+        if (response.status_code == 200):
             # Exibe thumbnail
-            if (not self.simulada):
-                img_data = response.content
-                img = Image.open(io.BytesIO(img_data))
+            data = response.json()
+            thumb_url = data.get("thumb_url")
+            print(f"Thumb url: {thumb_url}")
+
+            if not thumb_url:
+                print("⚠️ Resposta não contém thumb_url:", data)
+                return
+
+            img_data = requests.get(thumb_url).content
+            img = Image.open(io.BytesIO(img_data))
 
             # Adiciona no histórico
             entry_text = f"{self.video_name()} | {filtro}"
@@ -116,6 +131,7 @@ class VideoClient:
 
             self.save_image(entry_text, self.filtered_thumbnails, photo)
         else:
+            print(response)
             self.history_list.insert(tk.END, "Erro no upload")
 
     def on_history_select(self, event):
