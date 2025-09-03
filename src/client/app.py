@@ -208,11 +208,8 @@ class VideoClient:
                 photo = self.create_thumb(img)
                 entry_text = f"📁 Selecionado: {video_name}"
 
-                self.save_image(entry_text, self.original_thumbnails, img, f"Arquivo: {video_name}")
-                # self.resize_and_set_thumbnail(img)
-                # self.original_thumbnails[entry_text] = img
-                # self.history_list.insert(tk.END, entry_text)
-                # self.info_label.config(text=f"Arquivo: {video_name}")
+                self.save_image(entry_text, self.original_thumbnails,
+                                img, f"Arquivo: {video_name}")
 
             except Exception as e:
                 self.update_status(f"Erro: {str(e)}", error=True)
@@ -273,13 +270,8 @@ class VideoClient:
 
                         entry_text = f"🎬 {self.video_name()} | Filtro: {filtro}"
 
-                        self.save_image(entry_text, self.filtered_thumbnails, img, f"Processado com filtro: {filtro}")
-
-                        # self.resize_and_set_thumbnail(img)
-                        # self.filtered_thumbnails[entry_text] = img
-                        # self.history_list.insert(tk.END, entry_text)
-                        # self.info_label.config(
-                        #     text=f"Processado com filtro: {filtro}")
+                        self.save_image(
+                            entry_text, self.filtered_thumbnails, img, f"Processado com filtro: {filtro}")
 
                         self.update_status(
                             "Processamento concluído com sucesso!")
