@@ -5,8 +5,11 @@ import hashlib
 import sqlite3
 import datetime
 import cv2
+import mimetypes
 
-DB_PATH = "videos.db"
+
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+DB_PATH = os.path.join(BASE_DIR, "database", "videos.db")
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
@@ -50,10 +53,11 @@ def extract_video_info(video_path):
     return fps, width, height, duration_sec
 
 def save_meta_json(video_id, original_name, filter_type, video_path, thumb_path, output_dir):
-    """Gera e salva o meta.json na pasta do vídeo."""
+    """Gera e salva o meta.json na pasta do vídeo e retorna dict completo para o BD."""
     fps, width, height, duration_sec = extract_video_info(video_path)
     checksum = compute_checksum(video_path)
 
+    # --- JSON leve (apenas alguns campos) ---
     meta = {
         "uuid": video_id,
         "original_name": original_name,
@@ -70,7 +74,32 @@ def save_meta_json(video_id, original_name, filter_type, video_path, thumb_path,
     }
 
     meta_path = os.path.join(output_dir, "meta.json")
-    with open(meta_path, "w") as f:
-        json.dump(meta, f, indent=2)
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2, ensure_ascii=False)
 
-    return meta
+    # --- Dados completos para o banco ---
+    mime_type, _ = mimetypes.guess_type(original_name)
+    if mime_type is None:
+        mime_type = "application/octet-stream"
+
+    size_bytes = os.path.getsize(video_path)
+
+    db_record = {
+        "id": video_id,
+        "original_name": original_name,
+        "original_ext": os.path.splitext(original_name)[1].lstrip("."),
+        "mime_type": mime_type,
+        "size_bytes": size_bytes,
+        "duration_sec": duration_sec,
+        "fps": fps,
+        "width": width,
+        "height": height,
+        "filter": filter_type,
+        "created_at": meta["created_at"],
+        "path_original": video_path,
+        "path_processed": f"{filter_type}_{os.path.basename(video_path)}"  
+    }
+
+    print(db_record)  # Debug print
+
+    return db_record
