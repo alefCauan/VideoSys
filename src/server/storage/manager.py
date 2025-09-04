@@ -53,15 +53,42 @@ def extract_video_info(video_path):
     return fps, width, height, duration_sec
 
 def save_meta_json(video_id, original_name, filter_type, video_path, thumb_path, output_dir):
-    """Gera e salva o meta.json na pasta do vídeo e retorna dict completo para o BD."""
-    fps, width, height, duration_sec = extract_video_info(video_path)
-    checksum = compute_checksum(video_path)
+    """Organiza arquivos em pastas (original, processed, thumbs), gera meta.json e retorna dict completo para BD."""
 
-    # --- JSON leve (apenas alguns campos) ---
+    # --- Criar estrutura de diretórios ---
+    original_dir = os.path.join(output_dir, "original")
+    processed_dir = os.path.join(output_dir, "processed", filter_type)
+    thumbs_dir = os.path.join(output_dir, "thumbs")
+
+    os.makedirs(original_dir, exist_ok=True)
+    os.makedirs(processed_dir, exist_ok=True)
+    os.makedirs(thumbs_dir, exist_ok=True)
+
+    # --- Copiar/mover vídeo original e processado ---
+    original_ext = os.path.splitext(original_name)[1].lstrip(".")
+    original_dest = os.path.join(original_dir, f"video.{original_ext}")
+    processed_dest = os.path.join(processed_dir, f"video.{original_ext}")
+
+    # Se `video_path` já é o processado, você precisa salvar o original antes (upload)
+    if not os.path.exists(original_dest):
+        # copiar o original do upload
+        import shutil
+        shutil.copy2(video_path, original_dest)
+
+    # mover/renomear o processado
+    if video_path != processed_dest:
+        import shutil
+        shutil.move(video_path, processed_dest)
+
+    # --- Gerar dados do vídeo processado ---
+    fps, width, height, duration_sec = extract_video_info(processed_dest)
+    checksum = compute_checksum(processed_dest)
+
+    # --- JSON leve (para pasta) ---
     meta = {
         "uuid": video_id,
         "original_name": original_name,
-        "original_ext": os.path.splitext(original_name)[1].lstrip("."),
+        "original_ext": original_ext,
         "filter": filter_type,
         "checksum": checksum,
         "created_at": datetime.datetime.now().isoformat(),
@@ -69,8 +96,9 @@ def save_meta_json(video_id, original_name, filter_type, video_path, thumb_path,
         "width": width,
         "height": height,
         "duration_sec": duration_sec,
-        "path_original": video_path,
-        "path_thumb": thumb_path
+        "path_original": original_dest,
+        "path_processed": processed_dest,
+        "path_thumb": thumb_path,
     }
 
     meta_path = os.path.join(output_dir, "meta.json")
@@ -82,12 +110,12 @@ def save_meta_json(video_id, original_name, filter_type, video_path, thumb_path,
     if mime_type is None:
         mime_type = "application/octet-stream"
 
-    size_bytes = os.path.getsize(video_path)
+    size_bytes = os.path.getsize(processed_dest)
 
     db_record = {
         "id": video_id,
         "original_name": original_name,
-        "original_ext": os.path.splitext(original_name)[1].lstrip("."),
+        "original_ext": original_ext,
         "mime_type": mime_type,
         "size_bytes": size_bytes,
         "duration_sec": duration_sec,
@@ -96,10 +124,9 @@ def save_meta_json(video_id, original_name, filter_type, video_path, thumb_path,
         "height": height,
         "filter": filter_type,
         "created_at": meta["created_at"],
-        "path_original": video_path,
-        "path_processed": f"{filter_type}_{os.path.basename(video_path)}"  
+        "path_original": original_dest,
+        "path_processed": processed_dest,
     }
 
-    print(db_record)  # Debug print
-
     return db_record
+
