@@ -46,6 +46,24 @@ def generate_thumbnail(video_path, thumbnail_path):
         cv2.imwrite(thumbnail_path, frame)
     video_capture.release()
 
+# Função para obter duração do vídeo
+def get_video_duration(video_path):
+    """Retorna a duração do vídeo em formato MM:SS"""
+    try:
+        video_capture = cv2.VideoCapture(video_path)
+        fps = video_capture.get(cv2.CAP_PROP_FPS)
+        frame_count = video_capture.get(cv2.CAP_PROP_FRAME_COUNT)
+        video_capture.release()
+        
+        if fps > 0:
+            duration_seconds = int(frame_count / fps)
+            minutes = duration_seconds // 60
+            seconds = duration_seconds % 60
+            return f"{minutes:02d}:{seconds:02d}"
+        return "00:00"
+    except:
+        return "00:00"
+
 # --- Rotas ---
 @app.route("/", methods=["GET"])
 def index():
@@ -53,6 +71,22 @@ def index():
         cur = conn.cursor()
         cur.execute("SELECT id, original_name, filter, created_at FROM videos ORDER BY created_at DESC")
         rows = cur.fetchall()
+    
+    # Adicionar duração aos vídeos
+    videos_with_duration = []
+    for row in rows:
+        video_id, original_name, filter_type, created_at = row
+        
+        # Buscar o caminho do vídeo
+        video_path = None
+        for root_dir, sub_dirs, files in os.walk(paths.VIDEOS):
+            if video_id in root_dir and "video.mp4" in files:
+                video_path = os.path.join(root_dir, "video.mp4")
+                break
+        
+        duration = get_video_duration(video_path) if video_path else "00:00"
+        videos_with_duration.append((video_id, original_name, filter_type, created_at, duration))
+    
     template = """
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -60,6 +94,7 @@ def index():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="https://fonts.googleapis.com/css2?family=Stick+No+Bills:wght@400&display=swap" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
         <title>Video Server - Galeria</title>
         <style>
             * {
@@ -148,6 +183,7 @@ def index():
                 border-radius: 15px;
                 overflow: hidden;
                 transition: all 0.3s ease;
+                position: relative;
             }
             
             .video-card:hover {
@@ -163,12 +199,7 @@ def index():
             
             .video-info {
                 padding: 15px;
-            }
-            
-            .video-id {
-                font-size: 14px;
-                color: #bbb;
-                margin-bottom: 8px;
+                padding-bottom: 50px; /* Espaço para o botão delete */
             }
             
             .video-name {
@@ -178,14 +209,14 @@ def index():
                 margin-bottom: 10px;
                 word-break: break-word;
             }
+            
             .logo {
-                width: 120px;   /* ajusta tamanho */
+                width: 120px;
                 height: auto;
                 display: block;
-                margin: 0 auto 20px; /* centraliza acima do título */
+                margin: 0 auto 20px;
             }
 
-            
             .filter-badge {
                 display: inline-block;
                 padding: 4px 12px;
@@ -193,13 +224,21 @@ def index():
                 font-size: 12px;
                 font-weight: 500;
                 margin-bottom: 10px;
+                margin-right: 10px;
                 border: 1px solid white;
                 color: white;
             }
             
-            .video-date {
-                font-size: 14px;
-                color: #aaa;
+            .duration-badge {
+                display: inline-block;
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 500;
+                margin-bottom: 10px;
+                border: 1px solid #4CAF50;
+                color: #4CAF50;
+                background: transparent;
             }
             
             .no-videos {
@@ -211,6 +250,30 @@ def index():
             .no-videos h2 {
                 margin-bottom: 10px;
                 color: #999;
+            }
+            
+            .delete-button {
+                position: absolute;
+                bottom: 10px;
+                right: 10px;
+                background: #e53e3e;
+                color: white;
+                border: none;
+                padding: 8px;
+                border-radius: 50%;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                width: 35px;
+                height: 35px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+            }
+            
+            .delete-button:hover {
+                background: #c53030;
+                transform: scale(1.1);
             }
             
             @media (max-width: 768px) {
@@ -233,34 +296,32 @@ def index():
     <body>
         <div class="container">
             <header>
-                <img src="https://i.imgur.com/d4QrTFx.png 
-                    alt="Logo" class="logo">
-
+                <img src="https://i.imgur.com/d4QrTFx.png" alt="Logo" class="logo">
                 <h1>Galeria de Vídeos</h1>
             </header>
             
-            {% if rows %}
+            {% if videos_with_duration %}
                 <div class="stats-section">
                     <div class="stat-card">
-                        <span class="stat-number">{{ rows|length }}</span>
+                        <span class="stat-number">{{ videos_with_duration|length }}</span>
                         <div class="stat-label">Total de Vídeos</div>
                     </div>
                     <div class="stat-card">
-                        <span class="stat-number">{{ rows|selectattr('2', 'equalto', 'gray')|list|length }}</span>
+                        <span class="stat-number">{{ videos_with_duration|selectattr('2', 'equalto', 'gray')|list|length }}</span>
                         <div class="stat-label">Escala de Cinza</div>
                     </div>
                     <div class="stat-card">
-                        <span class="stat-number">{{ rows|selectattr('2', 'equalto', 'edges')|list|length }}</span>
+                        <span class="stat-number">{{ videos_with_duration|selectattr('2', 'equalto', 'edges')|list|length }}</span>
                         <div class="stat-label">Detecção de Bordas</div>
                     </div>
                     <div class="stat-card">
-                        <span class="stat-number">{{ rows|selectattr('2', 'equalto', 'pixel')|list|length }}</span>
+                        <span class="stat-number">{{ videos_with_duration|selectattr('2', 'equalto', 'pixel')|list|length }}</span>
                         <div class="stat-label">Pixelizados</div>
                     </div>
                 </div>
                 
                 <div class="videos-grid">
-                    {% for id, original_name, filter, created_at in rows %}
+                    {% for id, original_name, filter, created_at, duration in videos_with_duration %}
                         <div class="video-card">
                             <a href="{{ url_for('serve_video', video_id=id) }}" style="text-decoration: none;">
                                 <img src="{{ url_for('serve_thumb', video_id=id) }}" 
@@ -269,7 +330,6 @@ def index():
                                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYwIiBoZWlnaHQ9IjkwIiB2aWV3Qm94PSIwIDAgMTYwIDkwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTYwIiBoZWlnaHQ9IjkwIiBmaWxsPSIjZjVmNWY1Ii8+Cjx0ZXh0IHg9IjgwIiB5PSI0NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZpbGw9IiM5OTkiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5TZW0gSW1hZ2VtPC90ZXh0Pgo8L3N2Zz4K'">
                             </a>
                             <div class="video-info">
-                                <div class="video-id">ID: {{ id }}</div>
                                 <div class="video-name">{{ original_name }}</div>
                                 <span class="filter-badge">
                                     {% if filter == 'gray' %}
@@ -280,8 +340,17 @@ def index():
                                         Pixelização
                                     {% endif %}
                                 </span>
-                                <div class="video-date">{{ created_at }}</div>
+                                <span class="duration-badge">
+                                    <i class="fas fa-clock"></i> {{ duration }}
+                                </span>
                             </div>
+                            <form action="{{ url_for('delete_video', video_id=id) }}" method="POST" 
+                                  onsubmit="return confirm('Tem certeza que deseja deletar este vídeo?');"
+                                  style="display: inline;">
+                                <button type="submit" class="delete-button" title="Deletar vídeo">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
                         </div>
                     {% endfor %}
                 </div>
@@ -295,8 +364,7 @@ def index():
     </body>
     </html>
     """
-
-    return render_template_string(template, rows=rows)
+    return render_template_string(template, videos_with_duration=videos_with_duration)
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -442,6 +510,19 @@ def view_video(video_id):
                 color: #ccc;
                 font-size: 14px;
             }
+
+            delete-button {
+                background: #e53e3e;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background 0.3s ease;
+            }
+            delete-button:hover {
+                background: #c53030;
+            }
         </style>
     </head>
     <body>
@@ -460,6 +541,7 @@ def view_video(video_id):
                     <p>ID: {{ video[0] }}</p>
                 </div>
             </div>
+
         </div>
     </body>
     </html>
