@@ -53,13 +53,13 @@ def index():
         cur = conn.cursor()
         cur.execute("SELECT id, original_name, filter, created_at FROM videos ORDER BY created_at DESC")
         rows = cur.fetchall()
-
     template = """
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="https://fonts.googleapis.com/css2?family=Stick+No+Bills:wght@400&display=swap" rel="stylesheet">
         <title>Video Server - Galeria</title>
         <style>
             * {
@@ -67,59 +67,70 @@ def index():
                 padding: 0;
                 box-sizing: border-box;
             }
-            
             body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                font-family: 'Stick No Bills', sans-serif;
+                background: #021A1A;
+                color: #ffffff;
                 height: 100vh;
                 padding: 20px;
             }
             
             .container {
                 max-width: 100%;
-                height: 100%; /* ou min-height: 100% */
+                min-height: 100%;
                 overflow-y: auto;
                 margin: 0 auto;
-                background: rgba(255, 255, 255, 0.95);
+                background: rgba(0, 0, 0, 0.6);
                 border-radius: 20px;
-                padding: 30px;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+                padding: 40px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
             }
-            
+
+            header {
+                text-align: center;
+                margin-bottom: 40px;
+            }
+
+            header img {
+                width: 200px;
+                margin-bottom: 20px;
+            }
+
             h1 {
                 text-align: center;
-                color: #2c3e50;
-                margin-bottom: 30px;
-                font-size: 2.5em;
-                font-weight: 300;
+                color: white;
+                font-size: 128px;
+                font-weight: 400;
+                word-wrap: break-word;
+                margin-bottom: 20px;
             }
-            
+
             .stats-section {
                 display: flex;
                 justify-content: center;
                 gap: 30px;
-                margin-bottom: 30px;
+                margin-bottom: 40px;
                 flex-wrap: wrap;
             }
             
             .stat-card {
-                background: rgba(255, 255, 255, 0.9);
+                background: transparent;
+                border: 2px solid white;
                 border-radius: 12px;
                 padding: 20px;
                 text-align: center;
                 min-width: 150px;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+                color: white;
             }
             
             .stat-number {
                 font-size: 2em;
                 font-weight: bold;
-                color: #667eea;
+                color: white;
                 display: block;
             }
             
             .stat-label {
-                color: #666;
                 font-size: 14px;
                 margin-top: 5px;
             }
@@ -132,47 +143,48 @@ def index():
             }
             
             .video-card {
-                background: white;
+                background: transparent;
+                border: 1px solid white;
                 border-radius: 15px;
                 overflow: hidden;
-                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
                 transition: all 0.3s ease;
             }
             
             .video-card:hover {
                 transform: translateY(-5px);
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+                box-shadow: 0 10px 30px rgba(255, 255, 255, 0.3);
             }
             
             .video-thumbnail {
                 width: 100%;
                 height: 180px;
                 object-fit: cover;
-                transition: transform 0.3s ease;
-            }
-            
-            .video-card:hover .video-thumbnail {
-                transform: scale(1.05);
             }
             
             .video-info {
-                padding: 20px;
+                padding: 15px;
             }
             
             .video-id {
                 font-size: 14px;
-                color: #666;
+                color: #bbb;
                 margin-bottom: 8px;
-                font-family: 'Courier New', monospace;
             }
             
             .video-name {
                 font-size: 18px;
-                font-weight: 600;
-                color: #2c3e50;
+                font-weight: 400;
+                color: white;
                 margin-bottom: 10px;
                 word-break: break-word;
             }
+            .logo {
+                width: 120px;   /* ajusta tamanho */
+                height: auto;
+                display: block;
+                margin: 0 auto 20px; /* centraliza acima do título */
+            }
+
             
             .filter-badge {
                 display: inline-block;
@@ -181,26 +193,13 @@ def index():
                 font-size: 12px;
                 font-weight: 500;
                 margin-bottom: 10px;
-            }
-            
-            .filter-gray {
-                background: #6c757d;
-                color: white;
-            }
-            
-            .filter-edges {
-                background: #28a745;
-                color: white;
-            }
-            
-            .filter-pixel {
-                background: #fd7e14;
+                border: 1px solid white;
                 color: white;
             }
             
             .video-date {
                 font-size: 14px;
-                color: #888;
+                color: #aaa;
             }
             
             .no-videos {
@@ -218,21 +217,27 @@ def index():
                 .stats-section {
                     gap: 15px;
                 }
-                
                 .stat-card {
                     min-width: 120px;
                     padding: 15px;
                 }
-                
                 .videos-grid {
                     grid-template-columns: 1fr;
+                }
+                h1 {
+                    font-size: 64px;
                 }
             }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>🎬 Galeria de Vídeos</h1>
+            <header>
+                <img src="https://i.imgur.com/d4QrTFx.png 
+                    alt="Logo" class="logo">
+
+                <h1>Galeria de Vídeos</h1>
+            </header>
             
             {% if rows %}
                 <div class="stats-section">
@@ -259,20 +264,20 @@ def index():
                         <div class="video-card">
                             <a href="{{ url_for('serve_video', video_id=id) }}" style="text-decoration: none;">
                                 <img src="{{ url_for('serve_thumb', video_id=id) }}" 
-                                     alt="Thumbnail do vídeo {{ original_name }}"
-                                     class="video-thumbnail"
-                                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYwIiBoZWlnaHQ9IjkwIiB2aWV3Qm94PSIwIDAgMTYwIDkwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTYwIiBoZWlnaHQ9IjkwIiBmaWxsPSIjZjVmNWY1Ii8+Cjx0ZXh0IHg9IjgwIiB5PSI0NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZpbGw9IiM5OTkiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5TZW0gSW1hZ2VtPC90ZXh0Pgo8L3N2Zz4K'">
+                                    alt="Thumbnail do vídeo {{ original_name }}"
+                                    class="video-thumbnail"
+                                    onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYwIiBoZWlnaHQ9IjkwIiB2aWV3Qm94PSIwIDAgMTYwIDkwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTYwIiBoZWlnaHQ9IjkwIiBmaWxsPSIjZjVmNWY1Ii8+Cjx0ZXh0IHg9IjgwIiB5PSI0NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZpbGw9IiM5OTkiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5TZW0gSW1hZ2VtPC90ZXh0Pgo8L3N2Zz4K'">
                             </a>
                             <div class="video-info">
                                 <div class="video-id">ID: {{ id }}</div>
                                 <div class="video-name">{{ original_name }}</div>
-                                <span class="filter-badge filter-{{ filter }}">
+                                <span class="filter-badge">
                                     {% if filter == 'gray' %}
-                                        🎨 Escala de Cinza
+                                        Escala de Cinza
                                     {% elif filter == 'edges' %}
-                                        🔍 Detecção de Bordas
+                                        Detecção de Bordas
                                     {% elif filter == 'pixel' %}
-                                        🟫 Pixelização
+                                        Pixelização
                                     {% endif %}
                                 </span>
                                 <div class="video-date">{{ created_at }}</div>
@@ -290,6 +295,7 @@ def index():
     </body>
     </html>
     """
+
     return render_template_string(template, rows=rows)
 
     
@@ -394,15 +400,18 @@ def view_video(video_id):
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="https://fonts.googleapis.com/css2?family=Stick+No+Bills:wght@400&display=swap" rel="stylesheet">
         <title>{{ video[1] }} - Video Processor</title>
         <style>
             body {
                 margin: 0;
                 padding: 20px;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background: #1a1a1a;
+                background: #000000;
                 color: white;
+                font-family: 'Stick No Bills', sans-serif;
+                color: #ffffff; 
             }
+
             .container {
                 max-width: 1000px;
                 margin: 0 auto;
