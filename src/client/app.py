@@ -31,7 +31,6 @@ class VideoClient:
             response = requests.get(f"{self.server_url}/filters", timeout=5)
             response.raise_for_status()
             data = response.json()
-            print("Resposta bruta:", data)
 
             # Se vier como dict com chave "filters"
             if isinstance(data, dict) and "available_filters" in data:
