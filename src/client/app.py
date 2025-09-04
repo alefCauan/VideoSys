@@ -24,6 +24,7 @@ class VideoClient:
         self.get_filters()
 
         self.setup_ui()
+        self.load_history_from_server()
 
     def get_filters(self):
         try:
@@ -285,7 +286,8 @@ class VideoClient:
 
         selected_name = self.filter_combo.get()
         selected_filter = next(
-            (f for f in self.filters if f["description"] == selected_name), None
+            (f for f in self.filters if f["description"]
+             == selected_name), None
         )
 
         if selected_filter:
@@ -392,6 +394,40 @@ class VideoClient:
 
         photo = ImageTk.PhotoImage(img_resized)
         self.set_thumbnail_label(photo)
+
+    def load_history_from_server(self):
+        """Carrega histórico do servidor (rota /api/videos)"""
+        try:
+            response = requests.get(f"{self.server_url}/api/videos", timeout=5)
+            response.raise_for_status()
+            data = response.json()
+
+            videos = data.get("videos", [])
+            print(f"Histórico carregado: {len(videos)} vídeos")
+
+            for v in videos:
+                entry_text = f"🎬 {v['original_name']} | Filtro: {v['filter']}"
+                thumb_url = v.get("thumbnail_url")
+
+                if thumb_url:
+                    try:
+                        img_data = requests.get(thumb_url, timeout=5).content
+                        img = Image.open(io.BytesIO(img_data))
+
+                        # salvar no dicionário de processados
+                        self.filtered_thumbnails[entry_text] = img
+
+                        # adicionar ao histórico se ainda não existir
+                        items = self.history_list.get(0, tk.END)
+                        if entry_text not in items:
+                            self.history_list.insert(tk.END, entry_text)
+
+                    except Exception as e:
+                        print(
+                            f"Erro ao carregar thumbnail de {v['original_name']}: {e}")
+
+        except Exception as e:
+            print("Erro ao buscar histórico do servidor:", e)
 
 
 if __name__ == "__main__":
