@@ -4,13 +4,13 @@ import datetime
 import cv2
 from flask import Flask, request, render_template_string, send_from_directory, redirect, url_for, jsonify
 
-
 # imports locais
 from storage import manager, paths
 from filters import grayscale, edges, pixelate
 
-app = Flask(__name__)
 manager.init_db()
+
+app = Flask(__name__)
 
 def process_video(input_path, output_path, filter_type="gray"):
     video_capture = cv2.VideoCapture(input_path)
@@ -298,7 +298,6 @@ def index():
 
     return render_template_string(template, rows=rows)
 
-    
 @app.route("/upload", methods=["POST"])
 def upload():
     uploaded_file = request.files["video"]
@@ -380,8 +379,6 @@ def serve_thumb(video_id):
         if video_id in root_dir and "thumbs" in sub_dirs:
             return send_from_directory(os.path.join(root_dir, "thumbs"), "thumb.jpg")
     return "Thumb não encontrada", 404
-
-
 
 # Rota para visualizar vídeo em uma página dedicada
 @app.route("/video/<video_id>/view")
@@ -512,6 +509,16 @@ def api_videos():
         })
     
     return {'videos': videos}
+
+@app.route("/filters")
+def list_filters():
+    return {
+        "available_filters": [
+            {"name": "gray", "description": "Escala de Cinza"},
+            {"name": "edges", "description": "Detecção de Bordas"},
+            {"name": "pixel", "description": "Pixelização"}
+        ]
+    }
 
 
 

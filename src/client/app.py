@@ -14,14 +14,38 @@ class VideoClient:
         self.root.geometry("1000x700")
         self.root.minsize(800, 600)
 
-        # self.server_url = "http://10.180.43.186:5000"
-        self.server_url = "http://10.180.43.11:5000"
+        self.server_url = "http://10.180.43.186:5000"
+        # self.server_url = "http://10.180.43.11:5000"
 
         self.original_thumbnails = {}
         self.filtered_thumbnails = {}
         self.video_path = None
 
+        self.get_filters()
+
         self.setup_ui()
+        self.load_history_from_server()
+
+    def get_filters(self):
+        try:
+            response = requests.get(f"{self.server_url}/filters", timeout=5)
+            response.raise_for_status()
+            data = response.json()
+
+            # Se vier como dict com chave "filters"
+            if isinstance(data, dict) and "available_filters" in data:
+                self.filters = data["available_filters"]
+            else:
+                raise ValueError("Formato inesperado da resposta da API")
+
+        except Exception as e:
+            print("Erro ao buscar filtros:", e)
+            # fallback se a API falhar
+            self.filters = [
+                {"name": "gray", "description": "Escala de Cinza"},
+                {"name": "edges", "description": "Detecção de Bordas"},
+                {"name": "pixel", "description": "Pixelização"},
+            ]
 
     def setup_ui(self):
         # Configurar o grid principal
@@ -67,8 +91,20 @@ class VideoClient:
         filter_frame.grid(row=1, column=1, sticky="ew", padx=5)
 
         tk.Label(filter_frame, text="Filtro:", font=("Arial", 9)).pack()
-        self.filter_combo = ttk.Combobox(filter_frame, values=["gray", "edges", "pixel"],
-                                         state="readonly", width=15)
+
+        # Pegar só os nomes para exibição
+        filter_descriptions = [f["description"] for f in self.filters]
+
+        self.filter_combo = ttk.Combobox(
+            filter_frame,
+            values=filter_descriptions,
+            state="readonly",
+            width=20
+        )
+
+        # self.filter_combo = ttk.Combobox(filter_frame, values=["gray", "edges", "pixel"],
+        #                                  state="readonly", width=15)
+
         self.filter_combo.current(0)
         self.filter_combo.pack(pady=5)
 
@@ -247,7 +283,18 @@ class VideoClient:
             self.update_status("Selecione um vídeo primeiro!", error=True)
             return
 
-        filtro = self.filter_combo.get()
+        selected_name = self.filter_combo.get()
+        selected_filter = next(
+            (f for f in self.filters if f["description"]
+             == selected_name), None
+        )
+
+        if selected_filter:
+            filtro = selected_filter["name"]
+        else:
+            filtro = selected_name
+
+        # filtro = self.filter_combo.get()
         self.update_status("Enviando vídeo para processamento...")
 
         # Desabilitar botão durante upload
@@ -346,6 +393,40 @@ class VideoClient:
 
         photo = ImageTk.PhotoImage(img_resized)
         self.set_thumbnail_label(photo)
+
+    def load_history_from_server(self):
+        """Carrega histórico do servidor (rota /api/videos)"""
+        try:
+            response = requests.get(f"{self.server_url}/api/videos", timeout=5)
+            response.raise_for_status()
+            data = response.json()
+
+            videos = data.get("videos", [])
+            print(f"Histórico carregado: {len(videos)} vídeos")
+
+            for v in videos:
+                entry_text = f"🎬 {v['original_name']} | Filtro: {v['filter']}"
+                thumb_url = v.get("thumbnail_url")
+
+                if thumb_url:
+                    try:
+                        img_data = requests.get(thumb_url, timeout=5).content
+                        img = Image.open(io.BytesIO(img_data))
+
+                        # salvar no dicionário de processados
+                        self.filtered_thumbnails[entry_text] = img
+
+                        # adicionar ao histórico se ainda não existir
+                        items = self.history_list.get(0, tk.END)
+                        if entry_text not in items:
+                            self.history_list.insert(tk.END, entry_text)
+
+                    except Exception as e:
+                        print(
+                            f"Erro ao carregar thumbnail de {v['original_name']}: {e}")
+
+        except Exception as e:
+            print("Erro ao buscar histórico do servidor:", e)
 
 
 if __name__ == "__main__":
