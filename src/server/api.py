@@ -3,6 +3,7 @@ import uuid
 import datetime
 import cv2
 from flask import Flask, request, render_template_string, send_from_directory, redirect, url_for, jsonify
+import shutil
 
 # imports locais
 from storage import manager, paths
@@ -356,29 +357,46 @@ def upload():
 
     video_uuid = str(uuid.uuid4())
     today_date = datetime.date.today()
-    output_directory = os.path.join(paths.VIDEOS, today_date.strftime("%Y"), today_date.strftime("%m"), today_date.strftime("%d"), video_uuid)
+    output_directory = os.path.join(
+        paths.VIDEOS,
+        today_date.strftime("%Y"),
+        today_date.strftime("%m"),
+        today_date.strftime("%d"),
+        video_uuid
+    )
     os.makedirs(output_directory, exist_ok=True)
 
-    output_video_path = os.path.join(output_directory, "video.mp4")
-    process_video(temp_file_path, output_video_path, selected_filter)
+    # --- Salvar original ---
+    original_dir = os.path.join(output_directory, "original")
+    os.makedirs(original_dir, exist_ok=True)
+    original_ext = os.path.splitext(uploaded_file.filename)[1]
+    original_dest = os.path.join(original_dir, f"original{original_ext}")
+    shutil.move(temp_file_path, original_dest)
 
-    # thumbnail
-    thumbnail_directory = os.path.join(output_directory, "thumbs")
-    os.makedirs(thumbnail_directory, exist_ok=True)
-    thumbnail_file_path = os.path.join(thumbnail_directory, "thumb.jpg")
-    generate_thumbnail(output_video_path, thumbnail_file_path)
+    # --- Gerar processado ---
+    processed_dir = os.path.join(output_directory, "processed", selected_filter)
+    os.makedirs(processed_dir, exist_ok=True)
+    processed_dest = os.path.join(processed_dir, f"video_{selected_filter}{original_ext}")
+    process_video(original_dest, processed_dest, selected_filter)
 
+    # --- Thumbnail ---
+    thumbs_dir = os.path.join(output_directory, "thumbs")
+    os.makedirs(thumbs_dir, exist_ok=True)
+    thumb_path = os.path.join(thumbs_dir, "thumb.jpg")
+    generate_thumbnail(processed_dest, thumb_path)
+
+    # --- Metadados ---
     result = manager.save_meta_json(
         video_uuid,
         uploaded_file.filename,
         selected_filter,
-        output_video_path,
-        thumbnail_file_path,
+        original_dest,
+        processed_dest,
+        thumb_path,
         output_directory
     )
-    
 
-    # agora salvar no SQLite
+    # --- Banco ---
     with manager.sqlite3.connect(manager.DB_PATH) as conn:
         cur = conn.cursor()
         cur.execute("""
@@ -405,7 +423,6 @@ def upload():
         ))
         conn.commit()
 
-    os.remove(temp_file_path)
     return jsonify({
         "id": video_uuid,
         "video_url": url_for("serve_video", video_id=video_uuid, _external=True),
@@ -529,7 +546,6 @@ def view_video(video_id):
 # Rota para deletar vídeo
 @app.route("/video/<video_id>/delete", methods=["POST"])
 def delete_video(video_id):
-    import shutil
     
     with manager.sqlite3.connect(manager.DB_PATH) as conn:
         cur = conn.cursor()
@@ -547,7 +563,7 @@ def delete_video(video_id):
 
     # Move somente o arquivo de vídeo para a lixeira
     if video_path and os.path.exists(video_path):
-        trash_dir = paths.TRASH   # já definido no seu paths.py
+        trash_dir = paths.TRASH   
         os.makedirs(trash_dir, exist_ok=True)
 
         trash_target = os.path.join(trash_dir, os.path.basename(video_path))
