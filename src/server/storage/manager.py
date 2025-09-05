@@ -65,9 +65,10 @@ def save_meta_json(video_id, original_name, filter_type, video_path, thumb_path,
     os.makedirs(thumbs_dir, exist_ok=True)
 
     # --- Copiar/mover vídeo original e processado ---
+    base_name = os.path.splitext(original_name)[0].lstrip(".")
     original_ext = os.path.splitext(original_name)[1].lstrip(".")
-    original_dest = os.path.join(original_dir, f"video.{original_ext}")
-    processed_dest = os.path.join(processed_dir, f"video.{original_ext}")
+    original_dest = os.path.join(original_dir, f"{base_name}.{original_ext}")
+    processed_dest = os.path.join(processed_dir, f"{base_name}_{filter_type}.{original_ext}")
 
     # Se `video_path` já é o processado, você precisa salvar o original antes (upload)
     if not os.path.exists(original_dest):
