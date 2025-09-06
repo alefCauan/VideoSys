@@ -7,3 +7,4 @@ VIDEOS = os.path.join(MEDIA_ROOT, "videos")
 
 os.makedirs(INCOMING, exist_ok=True)
 os.makedirs(VIDEOS, exist_ok=True)
+TRASH = os.path.join(MEDIA_ROOT, "trash")

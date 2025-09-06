@@ -3,6 +3,7 @@ import uuid
 import datetime
 import cv2
 from flask import Flask, request, render_template_string, send_from_directory, redirect, url_for, jsonify
+import shutil
 
 # imports locais
 from storage import manager, paths
@@ -93,61 +94,61 @@ def index():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>VideoSYS</title>
+        <link rel="icon" type="image/png" href="https://i.imgur.com/d4QrTFx.png">
         <link href="https://fonts.googleapis.com/css2?family=Stick+No+Bills:wght@400&display=swap" rel="stylesheet">
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-        <title>Video Server - Galeria</title>
         <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
                 font-family: 'Stick No Bills', sans-serif;
                 background: #021A1A;
                 color: #ffffff;
-                height: 100vh;
                 padding: 20px;
+                height: 100vh;
+
             }
-            
+
             .container {
-                max-width: 100%;
-                min-height: 100%;
-                overflow-y: auto;
+                max-width: 1200px;
                 margin: 0 auto;
-                background: rgba(0, 0, 0, 0.6);
+                overflow-y: auto;
+                background: rgba(0,0,0,0.6);
                 border-radius: 20px;
                 padding: 40px;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+                box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+                height: 90vh;
             }
 
             header {
-                text-align: center;
+                display: flex;
+                align-items: center; /* centraliza verticalmente */
+                justify-content: center; /* centraliza horizontalmente */
+                gap: 20px; /* espaço entre logo e título */
                 margin-bottom: 40px;
+                flex-wrap: wrap; /* para telas pequenas, quebra linha */
             }
 
             header img {
-                width: 200px;
-                margin-bottom: 20px;
+                width: 120px; /* logo menor */
+                height: auto;
             }
 
             h1 {
-                text-align: center;
-                color: white;
-                font-size: 128px;
+                font-size: 72px; /* título menor */
                 font-weight: 400;
-                word-wrap: break-word;
-                margin-bottom: 20px;
+                color: #fff;
+                margin: 0;
             }
 
+            /* Stats cards */
             .stats-section {
                 display: flex;
                 justify-content: center;
                 gap: 30px;
-                margin-bottom: 40px;
                 flex-wrap: wrap;
+                margin-bottom: 40px;
             }
-            
             .stat-card {
                 background: transparent;
                 border: 2px solid white;
@@ -157,140 +158,117 @@ def index():
                 min-width: 150px;
                 color: white;
             }
-            
-            .stat-number {
-                font-size: 2em;
-                font-weight: bold;
-                color: white;
-                display: block;
-            }
-            
-            .stat-label {
-                font-size: 14px;
-                margin-top: 5px;
-            }
-            
+            .stat-number { font-size: 2em; font-weight: bold; display: block; color: white; }
+            .stat-label { font-size: 14px; margin-top: 5px; }
+
+            /* Videos grid */
             .videos-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
                 gap: 25px;
-                margin-top: 30px;
-            }
-            
-            .video-card {
-                background: transparent;
-                border: 1px solid white;
-                border-radius: 15px;
-                overflow: hidden;
-                transition: all 0.3s ease;
-                position: relative;
-            }
-            
-            .video-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 10px 30px rgba(255, 255, 255, 0.3);
-            }
-            
-            .video-thumbnail {
-                width: 100%;
-                height: 180px;
-                object-fit: cover;
-            }
-            
-            .video-info {
-                padding: 15px;
-                padding-bottom: 50px; /* Espaço para o botão delete */
-            }
-            
-            .video-name {
-                font-size: 18px;
-                font-weight: 400;
-                color: white;
-                margin-bottom: 10px;
-                word-break: break-word;
-            }
-            
-            .logo {
-                width: 120px;
-                height: auto;
-                display: block;
-                margin: 0 auto 20px;
             }
 
-            .filter-badge {
-                display: inline-block;
-                padding: 4px 12px;
-                border-radius: 20px;
-                font-size: 12px;
-                font-weight: 500;
-                margin-bottom: 10px;
-                margin-right: 10px;
-                border: 1px solid white;
-                color: white;
-            }
-            
-            .duration-badge {
-                display: inline-block;
-                padding: 4px 12px;
-                border-radius: 20px;
-                font-size: 12px;
-                font-weight: 500;
-                margin-bottom: 10px;
-                border: 1px solid #4CAF50;
-                color: #4CAF50;
+            /* Video card estilo YouTube */
+            .video-card {
                 background: transparent;
+                border-radius: 10px;
+                position: relative;
+                transition: transform 0.2s ease;
             }
-            
+            .video-card:hover { transform: translateY(-4px); }
+
+            /* Thumbnail */
+            .thumbnail-link {
+                position: relative;
+                display: block;
+                border-radius: 12px;
+                overflow: hidden;
+            }
+            .video-thumbnail {
+                width: 100%;
+                aspect-ratio: 16/9;
+                object-fit: cover;
+                border-radius: 12px;
+                display: block;
+                background: #111;
+            }
+            .video-duration {
+                position: absolute;
+                bottom: 6px;
+                right: 6px;
+                background: rgba(0,0,0,0.8);
+                color: #fff;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: 500;
+            }
+
+            /* Video info */
+            .video-details {
+                margin-top: 10px;
+            }
+            .video-title {
+                font-size: 18px;
+                font-weight: 400;
+                color: #fff;
+                margin-bottom: 4px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .video-meta {
+                font-size: 14px;
+                color: #aaa;
+            }
+
+            /* Delete button */
+            .delete-button {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                background: rgba(229,62,62,0.85);
+                border: none;
+                padding: 6px;
+                border-radius: 50%;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                color: #fff;
+                font-size: 13px;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+            }
+            .video-card:hover .delete-button { opacity: 1; }
+            .delete-button:hover { background: #c53030; transform: scale(1.1); }
+
+            /* No videos */
             .no-videos {
                 text-align: center;
                 padding: 60px 20px;
                 color: #666;
             }
-            
-            .no-videos h2 {
-                margin-bottom: 10px;
-                color: #999;
-            }
-            
-            .delete-button {
-                position: absolute;
-                bottom: 10px;
-                right: 10px;
-                background: #e53e3e;
-                color: white;
-                border: none;
-                padding: 8px;
-                border-radius: 50%;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                width: 35px;
-                height: 35px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 14px;
-            }
-            
-            .delete-button:hover {
-                background: #c53030;
-                transform: scale(1.1);
-            }
-            
+            .no-videos h2 { margin-bottom: 10px; color: #999; }
+
             @media (max-width: 768px) {
-                .stats-section {
-                    gap: 15px;
+                h1 { 
+                    font-size: 42px; /* título menor em telas pequenas */
                 }
-                .stat-card {
-                    min-width: 120px;
-                    padding: 15px;
+                .stats-section { 
+                    gap: 15px; 
                 }
-                .videos-grid {
-                    grid-template-columns: 1fr;
+                .stat-card { 
+                    min-width: 120px; 
+                    padding: 15px; 
                 }
-                h1 {
-                    font-size: 64px;
+                .videos-grid { 
+                    grid-template-columns: 1fr; 
                 }
             }
+
         </style>
     </head>
     <body>
@@ -299,8 +277,9 @@ def index():
                 <img src="https://i.imgur.com/d4QrTFx.png" alt="Logo" class="logo">
                 <h1>Galeria de Vídeos</h1>
             </header>
-            
+
             {% if videos_with_duration %}
+                <!-- Stats -->
                 <div class="stats-section">
                     <div class="stat-card">
                         <span class="stat-number">{{ videos_with_duration|length }}</span>
@@ -319,34 +298,34 @@ def index():
                         <div class="stat-label">Pixelizados</div>
                     </div>
                 </div>
-                
+
+                <!-- Videos grid -->
                 <div class="videos-grid">
                     {% for id, original_name, filter, created_at, duration in videos_with_duration %}
                         <div class="video-card">
-                            <a href="{{ url_for('serve_video', video_id=id) }}" style="text-decoration: none;">
+                            <!-- Thumbnail -->
+                            <a href="{{ url_for('serve_video', video_id=id) }}" class="thumbnail-link">
                                 <img src="{{ url_for('serve_thumb', video_id=id) }}" 
-                                    alt="Thumbnail do vídeo {{ original_name }}"
+                                    alt="Thumbnail do vídeo {{ original_name }}" 
                                     class="video-thumbnail"
-                                    onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYwIiBoZWlnaHQ9IjkwIiB2aWV3Qm94PSIwIDAgMTYwIDkwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTYwIiBoZWlnaHQ9IjkwIiBmaWxsPSIjZjVmNWY1Ii8+Cjx0ZXh0IHg9IjgwIiB5PSI0NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZpbGw9IiM5OTkiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5TZW0gSW1hZ2VtPC90ZXh0Pgo8L3N2Zz4K'">
+                                    onerror="this.src='https://via.placeholder.com/320x180?text=Sem+Thumb'">
+                                <span class="video-duration">{{ duration }}</span>
                             </a>
-                            <div class="video-info">
-                                <div class="video-name">{{ original_name }}</div>
-                                <span class="filter-badge">
-                                    {% if filter == 'gray' %}
-                                        Escala de Cinza
-                                    {% elif filter == 'edges' %}
-                                        Detecção de Bordas
-                                    {% elif filter == 'pixel' %}
-                                        Pixelização
+
+                            <!-- Informações -->
+                            <div class="video-details">
+                                <div class="video-title">{{ original_name }}</div>
+                                <div class="video-meta">
+                                    {% if filter == 'gray' %}Escala de Cinza
+                                    {% elif filter == 'edges' %}Detecção de Bordas
+                                    {% elif filter == 'pixel' %}Pixelização
                                     {% endif %}
-                                </span>
-                                <span class="duration-badge">
-                                    <i class="fas fa-clock"></i> {{ duration }}
-                                </span>
+                                </div>
                             </div>
+
+                            <!-- Botão Deletar -->
                             <form action="{{ url_for('delete_video', video_id=id) }}" method="POST" 
-                                  onsubmit="return confirm('Tem certeza que deseja deletar este vídeo?');"
-                                  style="display: inline;">
+                                onsubmit="return confirm('Tem certeza que deseja deletar este vídeo?');">
                                 <button type="submit" class="delete-button" title="Deletar vídeo">
                                     <i class="fas fa-trash"></i>
                                 </button>
@@ -378,29 +357,46 @@ def upload():
 
     video_uuid = str(uuid.uuid4())
     today_date = datetime.date.today()
-    output_directory = os.path.join(paths.VIDEOS, today_date.strftime("%Y"), today_date.strftime("%m"), today_date.strftime("%d"), video_uuid)
+    output_directory = os.path.join(
+        paths.VIDEOS,
+        today_date.strftime("%Y"),
+        today_date.strftime("%m"),
+        today_date.strftime("%d"),
+        video_uuid
+    )
     os.makedirs(output_directory, exist_ok=True)
 
-    output_video_path = os.path.join(output_directory, "video.mp4")
-    process_video(temp_file_path, output_video_path, selected_filter)
+    # --- Salvar original ---
+    original_dir = os.path.join(output_directory, "original")
+    os.makedirs(original_dir, exist_ok=True)
+    original_ext = os.path.splitext(uploaded_file.filename)[1]
+    original_dest = os.path.join(original_dir, f"original{original_ext}")
+    shutil.move(temp_file_path, original_dest)
 
-    # thumbnail
-    thumbnail_directory = os.path.join(output_directory, "thumbs")
-    os.makedirs(thumbnail_directory, exist_ok=True)
-    thumbnail_file_path = os.path.join(thumbnail_directory, "thumb.jpg")
-    generate_thumbnail(output_video_path, thumbnail_file_path)
+    # --- Gerar processado ---
+    processed_dir = os.path.join(output_directory, "processed", selected_filter)
+    os.makedirs(processed_dir, exist_ok=True)
+    processed_dest = os.path.join(processed_dir, f"video_{selected_filter}{original_ext}")
+    process_video(original_dest, processed_dest, selected_filter)
 
+    # --- Thumbnail ---
+    thumbs_dir = os.path.join(output_directory, "thumbs")
+    os.makedirs(thumbs_dir, exist_ok=True)
+    thumb_path = os.path.join(thumbs_dir, "thumb.jpg")
+    generate_thumbnail(processed_dest, thumb_path)
+
+    # --- Metadados ---
     result = manager.save_meta_json(
         video_uuid,
         uploaded_file.filename,
         selected_filter,
-        output_video_path,
-        thumbnail_file_path,
+        original_dest,
+        processed_dest,
+        thumb_path,
         output_directory
     )
-    
 
-    # agora salvar no SQLite
+    # --- Banco ---
     with manager.sqlite3.connect(manager.DB_PATH) as conn:
         cur = conn.cursor()
         cur.execute("""
@@ -427,7 +423,6 @@ def upload():
         ))
         conn.commit()
 
-    os.remove(temp_file_path)
     return jsonify({
         "id": video_uuid,
         "video_url": url_for("serve_video", video_id=video_uuid, _external=True),
@@ -551,25 +546,40 @@ def view_video(video_id):
 # Rota para deletar vídeo
 @app.route("/video/<video_id>/delete", methods=["POST"])
 def delete_video(video_id):
-    import shutil
     
     with manager.sqlite3.connect(manager.DB_PATH) as conn:
         cur = conn.cursor()
-        cur.execute("SELECT id FROM videos WHERE id = ?", (video_id,))
-        if not cur.fetchone():
-            return "Vídeo não encontrado", 404
+        cur.execute("SELECT path_processed FROM videos WHERE id = ?", (video_id,))
+        row = cur.fetchone()
         
+        if not row:
+            return "Vídeo não encontrado", 404
+
+        video_path = row[0]
+
         # Remove do banco
         cur.execute("DELETE FROM videos WHERE id = ?", (video_id,))
         conn.commit()
-    
-    # Remove arquivos físicos
-    for root_dir, sub_dirs, files in os.walk(paths.VIDEOS):
-        if video_id in root_dir:
-            shutil.rmtree(root_dir)
-            break
-    
+
+    # Move somente o arquivo de vídeo para a lixeira
+    if video_path and os.path.exists(video_path):
+        trash_dir = paths.TRASH   
+        os.makedirs(trash_dir, exist_ok=True)
+
+        trash_target = os.path.join(trash_dir, os.path.basename(video_path))
+
+        # Se já existir um arquivo com o mesmo nome, adiciona sufixo
+        counter = 1
+        while os.path.exists(trash_target):
+            name, ext = os.path.splitext(os.path.basename(video_path))
+            trash_target = os.path.join(trash_dir, f"{name}_{counter}{ext}")
+            counter += 1
+
+        shutil.move(video_path, trash_target)
+
     return redirect(url_for("index"))
+
+
 
 # Rota para API JSON (útil para integrações)
 @app.route("/api/videos")
