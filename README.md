@@ -100,3 +100,7 @@ self.server_url = "http://<IP_DO_SERVIDOR>:5000"
 ## 🖥️ Telas
 ## Tela do servidor quando iniciado: 
 ![App Foto](src/Tela_servidor.png) 
+## Tela do cliente para escolha do filtro e upload do video: 
+![App Foto](src/tela_cliente.jpg) 
+## Tela do servidor com video com video: 
+![App Foto](src/tela_com_video.jpg) 
