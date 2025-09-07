@@ -98,3 +98,5 @@ self.server_url = "http://<IP_DO_SERVIDOR>:5000"
 ---
 
 ## 🖥️ Telas
+## Tela do servidor quando iniciado: 
+![App Foto](src/Tela_servidor.png) 
